@@ -1,0 +1,28 @@
+The solution compromises 3 services + frontend
+
+# persons-api
+API that holds and register data of the persons.
+    + Tech: REST API + postgres db
+    + Why:  Its used when a new persons registers into the system and also to retrieve persons info when connections are queried, its expected
+            low volume of requests.
+
+# location-track-api
+API that registers the locations for all the devices. 
+    + Tech: gRPC APÏ + Kafka Queue (producer)
+    + Why:  Its used for the devices to constantly register his location all the time, Its expected a high volumne of traffic and constant communication
+            Taking advantage of gRPC fast and permanent connections, that high traffic can be supported and all small message locations are placed
+            in kafka queue to dispatch the response faster and async save the locations by consumer (connection-finder-api)
+
+# connection-finder-api
+API that find connections between persons based on their locations.
+    + Tech: REST API + postgres db + postgis + kafka queue (consumer)
+    + Why:  Its expected to be consumed when connections are queried, not high volume of requests and needs some GIS support to resolve connections.
+            As need the location data to process info, also is responsible of listen the kafka queue and register the locations in the db async.
+
+
+
+            
+
+
+
+
