@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+data:
+  DB_USERNAME: "postgres"
+  DB_NAME: "locations"
+  DB_HOST: "localhost"
+  DB_PORT: "5432"
+  QUEUE_TOPIC: "locations"
+  QUEUE_URL: "kafka-service.udaconnect.svc.cluster.local:9092"  
+metadata:
+  name: cf-db-env
+  namespace: udaconnect
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cf-db-secret
+  namespace: udaconnect
+type: Opaque
+data:
+  DB_PASSWORD: dXNlcjEyMw==
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: postgres-volume-cfa
+  namespace: udaconnect
+  labels:
+    type: local
+    app: connection-finder-api
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 256Mi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/mnt/data/data-locations"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: postgres-pv-claim-cfa
+  namespace: udaconnect
+  labels:
+    app: connection-finder-api
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 256Mi
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: connection-finder-api
+  namespace: udaconnect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+        app: connection-finder-api
+        id: "1"
+  template:
+    metadata:
+      labels:
+        app: connection-finder-api
+        id: "1"
+    spec:
+      containers:
+      - name: postgres
+        image: "postgis/postgis"
+        ports:
+          - containerPort: 5432
+        env:
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: cf-db-secret
+                key: DB_PASSWORD  
+        volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgresdb-cfa
+      - name: connection-finder-api
+        image: "jesusarueda/connection-finder-api:v1.24"
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: DB_HOST 
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: DB_PORT
+        - name: DB_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: DB_USERNAME 
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cf-db-secret
+              key: DB_PASSWORD
+        - name: QUEUE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: QUEUE_URL           
+        - name: QUEUE_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: QUEUE_TOPIC 
+        - name: PERSONS_API_URL
+          value: "http://persons1.udaconnect.svc.cluster.local:5000/api"       
+      volumes:
+      - name: postgresdb-cfa
+        persistentVolumeClaim:
+          claimName: postgres-pv-claim-cfa  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connectionfinder
+  namespace: udaconnect
+  labels:
+    app: connection-finder-api
+spec:
+  ports:    
+  - targetPort: 5000    
+    port: 5000
+    nodePort: 30009
+    protocol: TCP      
+  type: NodePort
+  selector:
+    app: connection-finder-api       
+        
+                
+        

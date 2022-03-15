@@ -1,0 +1,50 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: location-track-api
+  namespace: udaconnect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+        app: location-track-api
+        id: "1"
+  template:
+    metadata:
+      labels:
+        app: location-track-api
+        id: "1"
+    spec:
+      containers:     
+      - name: location-track-api
+        image: "jesusarueda/location-track-api:v1.19"
+        ports:
+        - containerPort: 5001
+        env:
+        - name: QUEUE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: QUEUE_URL 
+        - name: QUEUE_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: cf-db-env
+              key: QUEUE_TOPIC 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locationtrack1
+  namespace: udaconnect
+  labels:
+    app: location-track-api
+spec:
+  ports:    
+  - targetPort: 5001    
+    port: 5001
+    nodePort: 30006
+    protocol: TCP      
+  type: NodePort
+  selector:
+    app: location-track-api 
