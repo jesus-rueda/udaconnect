@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+data:
+  DB_USERNAME: "postgres"
+  DB_NAME: "persons"
+  DB_HOST: "localhost"
+  DB_PORT: "5432"
+metadata:
+  name: persons-db-env
+  namespace: udaconnect
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: persons-db-secret
+  namespace: udaconnect
+type: Opaque
+data:
+  DB_PASSWORD: dXNlcjEyMw==
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: postgres-volume-pa
+  namespace: udaconnect
+  labels:
+    type: local
+    app: persons-api
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 256Mi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/mnt/data/data-persons"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: postgres-pv-claim-pa
+  namespace: udaconnect
+  labels:
+    app: persons-api
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 256Mi
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: persons-api
+  namespace: udaconnect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+        app: persons-api
+        id: "1"
+  template:
+    metadata:
+      labels:
+        app: persons-api
+        id: "1"
+    spec:
+      containers:
+      - name: postgres
+        image: "postgres"
+        ports:
+          - containerPort: 5432
+        env:
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: persons-db-secret
+                key: DB_PASSWORD            
+        volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgresdb
+      - name: persons-api
+        image: "jesusarueda/persons-api:v1.20"
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_HOST
+          valueFrom:
+              configMapKeyRef:
+                name: persons-db-env
+                key: DB_HOST          
+        - name: DB_PORT
+          valueFrom:
+              configMapKeyRef:
+                name: persons-db-env
+                key: DB_PORT
+        - name: DB_USERNAME
+          valueFrom:
+              configMapKeyRef:
+                name: persons-db-env
+                key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                name: persons-db-secret
+                key: DB_PASSWORD            
+      volumes:
+        - name: postgresdb
+          persistentVolumeClaim:
+            claimName: postgres-pv-claim-pa     
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: persons1
+  namespace: udaconnect
+  labels:
+    app: persons-api
+spec:
+  ports:    
+  - targetPort: 5000    
+    port: 5000
+    nodePort: 30005
+    protocol: TCP      
+  type: NodePort
+  selector:
+    app: persons-api       
+        
