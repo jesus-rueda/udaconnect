@@ -20,9 +20,12 @@ def init_db():
         SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('locations')
         );""")
     
-    exists = next(iter(cur), False)
+    exists, = next(iter(cur), (False,))
+    print(f"Init db?: {str(exists)}")
 
     if not exists:
+
+        print("Init db ...")
         cur.execute("""
         CREATE DATABASE locations
             WITH 

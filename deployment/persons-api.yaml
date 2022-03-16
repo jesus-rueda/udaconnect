@@ -82,7 +82,7 @@ spec:
             - mountPath: /var/lib/postgresql/data
               name: postgresdb
       - name: persons-api
-        image: "jesusarueda/persons-api:v1.20"
+        image: "jesusarueda/persons-api:v1.34"
         ports:
         - containerPort: 5000
         env:
