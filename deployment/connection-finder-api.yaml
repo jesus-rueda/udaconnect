@@ -84,7 +84,7 @@ spec:
             - mountPath: /var/lib/postgresql/data
               name: postgresdb-cfa
       - name: connection-finder-api
-        image: "jesusarueda/connection-finder-api:v1.24"
+        image: "jesusarueda/connection-finder-api:v1.39"
         ports:
         - containerPort: 5000
         env:

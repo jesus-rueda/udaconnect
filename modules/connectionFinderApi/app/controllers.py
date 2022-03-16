@@ -9,7 +9,7 @@ from kafka import KafkaConsumer
 from app.services import ConnectionService, LocationService
 from flask import request
 from flask_accepts import responds
-from flask_restx import Namespace, Resource
+from flask_restx import Namespace, Resource, fields
 from typing import Optional
 import json
 from app import app
@@ -21,21 +21,47 @@ DATE_FORMAT = "%Y-%m-%d"
 
 api = Namespace("connectionFinderApi", description="Connections via geolocation.")  # noqa
 
+location = api.model("Location", {
+    "id" : fields.Integer(description="The ID of the location"),    
+    "longitude" : fields.String(description="The longitude of the location"),
+    "latitude" : fields.String(description="The latitude of the location"),
+    "person_id": fields.Integer(description="The ID of the person"),    
+    "creation_time" : fields.DateTime(description="The creation date of the location in format YYYY-MM-DDTHH:MM:SS"),
+})
+
+person = api.model("Person", {
+    "id" : fields.Integer(description="The ID of the person"),    
+    "first_name" : fields.String(description="The first name of the person"),
+    "last_name" : fields.String(description="The last name of the person"),
+    "company_name": fields.String(description="The company of the person")
+})  
+
+connection = api.model("Connection", {
+    "location" : fields.Nested(location),    
+    "person" : fields.Nested(person)    
+})
+
 @api.route("/locations/<location_id>")
-@api.param("location_id", "Unique ID for a given Location", _in="query")
+@api.param("location_id", "Unique ID for a given Location")
 class LocationResource(Resource):
    
     @responds(schema=LocationSchema)
+    @api.doc(description="Retrieves the location by the given id")            
+    @api.marshal_with(location, code=200, description='location')
     def get(self, location_id) -> Location:
         location: Location = LocationService.retrieve(location_id)
         return location
 
 
 @api.route("/persons/<person_id>/connection")
-@api.param("start_date", "Lower bound of date range", _in="query")
-@api.param("end_date", "Upper bound of date range", _in="query")
-@api.param("distance", "Proximity to a given user in meters", _in="query")
+@api.param("person_id", "Unique ID for a given Person")
 class ConnectionDataResource(Resource):
+
+    @api.doc(description="Retrieves the connections for a person based on a time range an a distance")            
+    @api.param("start_date", "Lower bound of date range in format YYYY-MM-DD", _in="query")
+    @api.param("end_date", "Upper bound of date range in format YYYY-MM-DD", _in="query")
+    @api.param("distance", "Proximity to a given user in meters", _in="query")
+    @api.marshal_with(connection, code=200, description='List of connections', as_list=True)
     @responds(schema=ConnectionSchema, many=True)
     def get(self, person_id) -> ConnectionSchema:
         start_date: datetime = datetime.strptime(
